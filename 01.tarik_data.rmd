@@ -1,0 +1,45 @@
+
+```{r}
+library(fs)
+library(glue)
+
+source("ambil_data.r")
+```
+
+```{r}
+
+nama_server <- "ND-JD8NNF2\\SQLEXPRESS"
+
+db <- c(
+    "badung_2021",
+    "bangli_audited",
+    "gianyar_audited",
+    "buleleng_2021_0204",
+    "jembrana_2021",
+    "karangasem_2021",
+    "klungkung_2021",
+    "tabanan_2021"
+)
+```
+
+```{r}
+for(val in db) {
+    kon <-
+        DBI::dbConnect(
+            odbc::odbc(),
+            Driver = "SQL Server Native Client 11.0",
+            Server = nama_server,
+            Database = val,
+            trusted_connection = "yes",
+            port = 0
+        )
+    
+    print(simpan_data_simda(kon))
+}
+```
+
+
+
+
+
+

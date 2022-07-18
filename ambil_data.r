@@ -18,6 +18,8 @@ kon <-
     port = 0
   )
 
+
+
 tarik_saldo_nrc_aset <- function(kon) {
   pemda <- tbl(kon, "ta_pemda") %>%
     arrange(-tahun) %>%
@@ -2460,3 +2462,667 @@ tarik_saldo_lo_defisit <- function(kon) {
     )
   return(lo_beban_3)
 }
+
+tarik_sp2d_spm <- function(kon) {
+  sp2d <- tbl(kon, "ta_sp2d")
+  
+  spm <- tbl(kon, "ta_spm")
+  spm_r <- tbl(kon, "ta_spm_rinc")
+  xspm <- intersect(colnames(spm), colnames(spm_r))
+  spm_df <- left_join(spm, spm_r, xspm)
+  
+  bayar_df <- left_join(sp2d, spm_df, by = c("tahun", "no_spm"))
+  
+  map90 <- tbl(kon, "ref_rek_mapping") %>%
+    select(kd_rek_1:kd_rek90_6)
+  
+  xmap90 <- intersect(colnames(bayar_df), colnames(map90))
+  
+  bayar_df2 <- left_join(bayar_df, map90, xmap90)
+  
+  bayar_df3 <-
+    bayar_df2 %>%
+    group_by(
+      kd_urusan,
+      kd_bidang,
+      kd_unit,
+      no_sp2d,
+      tgl_sp2d,
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      no_spm,
+      tgl_spm,
+      jn_spm,
+      uraian,
+      nm_penerima,
+      bank_penerima,
+      rek_penerima,
+      npwp
+    ) %>%
+    summarise(nilai = sum(nilai, na.rm = TRUE),
+              .groups = "drop") %>%
+    collect()
+  
+  # menambahkan referensi akun rek90
+  rek1 <- tbl(kon, "ref_rek90_1")
+  rek2 <- tbl(kon, "ref_rek90_2")
+  rek3 <- tbl(kon, "ref_rek90_3")
+  rek4 <- tbl(kon, "ref_rek90_4")
+  rek5 <- tbl(kon, "ref_rek90_5")
+  rek6 <- tbl(kon, "ref_rek90_6")
+  
+  rek <- rek6 %>%
+    left_join(rek5,
+              by = c(
+                "kd_rek90_1",
+                "kd_rek90_2",
+                "kd_rek90_3",
+                "kd_rek90_4",
+                "kd_rek90_5"
+              )) %>%
+    left_join(rek4,
+              by = c("kd_rek90_1",
+                     "kd_rek90_2",
+                     "kd_rek90_3",
+                     "kd_rek90_4")) %>%
+    left_join(rek3, by = c("kd_rek90_1",
+                           "kd_rek90_2",
+                           "kd_rek90_3")) %>%
+    left_join(rek2, by = c("kd_rek90_1",
+                           "kd_rek90_2")) %>%
+    left_join(rek1, by = c("kd_rek90_1"))
+  
+  rek <- rek %>%
+    select(
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      nm_rek90_1,
+      nm_rek90_2,
+      nm_rek90_3,
+      nm_rek90_4,
+      nm_rek90_5,
+      nm_rek90_6
+    ) %>%
+    collect()
+  
+  xrek <- intersect(colnames(bayar_df3), colnames(rek))
+  
+  unit <- tbl(kon, "ref_unit") %>% collect()
+  xunit <- intersect(colnames(bayar_df3), colnames(unit))
+  
+  jns_spm <- tbl(kon, "ref_jenis_spm") %>% collect()
+  
+  bayar_df4 <-
+    bayar_df3 %>%
+    left_join(rek, xrek) %>%
+    left_join(unit, xunit) %>%
+    left_join(jns_spm, "jn_spm") %>%
+    select(
+      kd_unit90,
+      nm_unit,
+      no_sp2d,
+      tgl_sp2d,
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      nm_rek90_1,
+      nm_rek90_2,
+      nm_rek90_3,
+      nm_rek90_4,
+      nm_rek90_5,
+      nm_rek90_6,
+      no_spm,
+      tgl_spm,
+      nm_jn_spm,
+      uraian,
+      nm_penerima,
+      bank_penerima,
+      rek_penerima,
+      npwp,
+      nilai
+    ) %>% 
+    mutate(rek_penerima = str_remove_all(rek_penerima, "[:punct:]"))
+  
+  return(bayar_df4)
+  
+}
+
+tarik_sts <- function(kon) {
+  
+  sts <- tbl(kon, "ta_sts")
+  sts_r <- tbl(kon, "ta_sts_rinc")
+  xsts <- intersect(colnames(sts), colnames(sts_r))
+  sts_df <- left_join(sts, sts_r, xsts)
+  
+  map90 <- tbl(kon, "ref_rek_mapping") %>%
+    select(kd_rek_1:kd_rek90_6)
+  
+  xmap90 <- intersect(colnames(sts_df), colnames(map90))
+  
+  sts_df2 <- left_join(sts_df, map90, xmap90)
+  
+  sts_df3 <-
+    sts_df2 %>%
+    filter(!is.na(nilai)) %>% 
+    group_by(
+      kd_urusan,
+      kd_bidang,
+      kd_unit,
+      no_sts,
+      tgl_sts,
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      keterangan
+    ) %>%
+    summarise(nilai = sum(nilai, na.rm = TRUE),
+              .groups = "drop") %>%
+    collect()
+  
+  # menambahkan referensi akun rek90
+  rek1 <- tbl(kon, "ref_rek90_1")
+  rek2 <- tbl(kon, "ref_rek90_2")
+  rek3 <- tbl(kon, "ref_rek90_3")
+  rek4 <- tbl(kon, "ref_rek90_4")
+  rek5 <- tbl(kon, "ref_rek90_5")
+  rek6 <- tbl(kon, "ref_rek90_6")
+  
+  rek <- rek6 %>%
+    left_join(rek5,
+              by = c(
+                "kd_rek90_1",
+                "kd_rek90_2",
+                "kd_rek90_3",
+                "kd_rek90_4",
+                "kd_rek90_5"
+              )) %>%
+    left_join(rek4,
+              by = c("kd_rek90_1",
+                     "kd_rek90_2",
+                     "kd_rek90_3",
+                     "kd_rek90_4")) %>%
+    left_join(rek3, by = c("kd_rek90_1",
+                           "kd_rek90_2",
+                           "kd_rek90_3")) %>%
+    left_join(rek2, by = c("kd_rek90_1",
+                           "kd_rek90_2")) %>%
+    left_join(rek1, by = c("kd_rek90_1"))
+  
+  rek <- rek %>%
+    select(
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      nm_rek90_1,
+      nm_rek90_2,
+      nm_rek90_3,
+      nm_rek90_4,
+      nm_rek90_5,
+      nm_rek90_6
+    ) %>%
+    collect()
+  
+  xrek <- intersect(colnames(sts_df3), colnames(rek))
+  
+  unit <- tbl(kon, "ref_unit") %>% collect()
+  xunit <- intersect(colnames(sts_df3), colnames(unit))
+  
+  sts_df4 <-
+    sts_df3 %>%
+    left_join(rek, xrek) %>%
+    left_join(unit, xunit) %>%
+    select(
+      kd_unit90,
+      nm_unit,
+      no_sts,
+      tgl_sts,
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      nm_rek90_1,
+      nm_rek90_2,
+      nm_rek90_3,
+      nm_rek90_4,
+      nm_rek90_5,
+      nm_rek90_6,
+      keterangan,
+      nilai
+    )
+  
+  return(sts_df4)
+  
+}
+
+bayar_kontrak <- function(kon) {
+  
+  spp_kontrak <- tbl(kon, "ta_spp_kontrak") 
+  spp_kontrak <- spp_kontrak %>% select(tahun, no_spp, no_kontrak)
+  spp_rinc <- tbl(kon, "ta_spp_rinc")
+  spp <- tbl(kon, "ta_spp")
+  
+  spp_kontrak_c <-
+    spp_kontrak %>%
+    left_join(spp_rinc, by = c("tahun", "no_spp")) %>%
+    left_join(spp,
+              by = c(
+                "tahun",
+                "no_spp",
+                "kd_urusan",
+                "kd_bidang",
+                "kd_unit",
+                "kd_sub"
+              ))
+  
+  map90 <- tbl(kon, "ref_rek_mapping") %>%
+    select(kd_rek_1:kd_rek90_6)
+  
+  xmap90 <- intersect(colnames(spp_kontrak_c), colnames(map90))
+  
+  spp_kontrak_d <-
+    spp_kontrak_c %>%
+    left_join(map90, xmap90) %>%
+    collect()
+  
+  # menambahkan referensi akun rek90
+  rek1 <- tbl(kon, "ref_rek90_1")
+  rek2 <- tbl(kon, "ref_rek90_2")
+  rek3 <- tbl(kon, "ref_rek90_3")
+  rek4 <- tbl(kon, "ref_rek90_4")
+  rek5 <- tbl(kon, "ref_rek90_5")
+  rek6 <- tbl(kon, "ref_rek90_6")
+  
+  rek <- rek6 %>%
+    left_join(rek5,
+              by = c(
+                "kd_rek90_1",
+                "kd_rek90_2",
+                "kd_rek90_3",
+                "kd_rek90_4",
+                "kd_rek90_5"
+              )) %>%
+    left_join(rek4,
+              by = c("kd_rek90_1",
+                     "kd_rek90_2",
+                     "kd_rek90_3",
+                     "kd_rek90_4")) %>%
+    left_join(rek3, by = c("kd_rek90_1",
+                           "kd_rek90_2",
+                           "kd_rek90_3")) %>%
+    left_join(rek2, by = c("kd_rek90_1",
+                           "kd_rek90_2")) %>%
+    left_join(rek1, by = c("kd_rek90_1"))
+  
+  rek <- rek %>%
+    select(
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      nm_rek90_1,
+      nm_rek90_2,
+      nm_rek90_3,
+      nm_rek90_4,
+      nm_rek90_5,
+      nm_rek90_6
+    ) %>%
+    collect()
+  
+  xrek <- intersect(colnames(spp_kontrak_d), colnames(rek))
+  
+  unit <- tbl(kon, "ref_unit") %>% collect()
+  xunit <- intersect(colnames(spp_kontrak_d), colnames(unit))
+  
+  tagihan <- tbl(kon, "ref_jenis_tagihan") %>% collect()
+  
+  spp_kontrak_e <-
+    spp_kontrak_d %>%
+    left_join(rek, xrek) %>%
+    left_join(unit, xunit) %>%
+    left_join(tagihan, "jns_tagihan") %>%
+    select(
+      kd_unit90,
+      nm_unit,
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      nm_rek90_1,
+      nm_rek90_2,
+      nm_rek90_3,
+      nm_rek90_4,
+      nm_rek90_5,
+      nm_rek90_6,
+      no_kontrak,
+      no_spp,
+      tgl_spp,
+      uraian,
+      no_spj,
+      no_tagihan,
+      tgl_tagihan,
+      nm_tagihan,
+      realisasi_fisik,
+      nm_penerima,
+      alamat_penerima,
+      bank_penerima,
+      rek_penerima,
+      npwp,
+      nilai
+    ) %>% 
+    mutate(rek_penerima = str_remove_all(rek_penerima, "[:punct:]"))
+  
+  return(spp_kontrak_e)
+  
+}
+
+daftar_kontrak <- function(kon) {
+  
+  kontrak <- tbl(kon, "ta_kontrak")
+  kontrak_add <- tbl(kon, "ta_kontrak_addendum")
+  
+  kontrak_a <-
+    left_join(kontrak, kontrak_add, by = c("tahun", "no_kontrak")) %>%
+    collect() %>%
+    mutate(
+      keperluan = if_else(is.na(keperluan.y), keperluan.x, keperluan.y),
+      waktu = if_else(is.na(waktu.y), waktu.x, waktu.y),
+      nilai = if_else(is.na(nilai.y), nilai.x, nilai.y)
+    ) %>%
+    select(
+      tahun,
+      kd_urusan,
+      kd_bidang,
+      kd_unit,
+      no_kontrak,
+      tgl_kontrak,
+      no_addendum,
+      tgl_addendum,
+      keperluan,
+      waktu,
+      nilai,
+      nm_perusahaan,
+      bentuk,
+      alamat,
+      nm_pemilik,
+      npwp,
+      nm_bank,
+      nm_rekening,
+      no_rekening
+    )
+  
+  unit <- tbl(kon, "ref_unit") %>% collect()
+  xunit <- intersect(colnames(kontrak_a), colnames(unit))
+  
+  kontrak_b <-
+    kontrak_a %>%
+    left_join(unit, xunit) %>%
+    select(
+      kd_unit90,
+           nm_unit,
+           no_kontrak:waktu,
+           nm_perusahaan:no_rekening,
+           nilai
+      ) %>% 
+    mutate(no_rekening = str_remove_all(no_rekening, "[:punct:]"))
+  
+  return(kontrak_b)
+}
+
+
+
+tarik_jurnal <- function(kon) {
+  pemda <- tbl(kon, "ta_pemda") %>%
+    arrange(-tahun) %>%
+    head(1) %>%
+    collect()
+  
+  ta <- pemda %>%
+    select(tahun) %>%
+    pull()
+  
+  entitas <- pemda %>%
+    select(nm_pemda) %>%
+    pull() %>%
+    word(start = 2, end = -1) %>%
+    str_to_lower()
+  
+  jrn_nrc <- tbl(kon, "ta_jurnalsemuaak")
+  jrn_nrc_r <- tbl(kon, "ta_jurnalsemuaak_rinc")
+  xjrn <- intersect(colnames(jrn_nrc), colnames(jrn_nrc_r))
+  jrn_nrc_i <-
+    left_join(jrn_nrc, jrn_nrc_r, xjrn) %>%
+    filter(tahun == ta) %>%
+    collect()
+  
+  # menambahkan referensi akun rek90
+  rek1 <- tbl(kon, "ref_rek90_1")
+  rek2 <- tbl(kon, "ref_rek90_2")
+  rek3 <- tbl(kon, "ref_rek90_3")
+  rek4 <- tbl(kon, "ref_rek90_4")
+  rek5 <- tbl(kon, "ref_rek90_5")
+  rek6 <- tbl(kon, "ref_rek90_6")
+  
+  rek <- rek6 %>%
+    left_join(rek5,
+              by = c(
+                "kd_rek90_1",
+                "kd_rek90_2",
+                "kd_rek90_3",
+                "kd_rek90_4",
+                "kd_rek90_5"
+              )) %>%
+    left_join(rek4,
+              by = c("kd_rek90_1",
+                     "kd_rek90_2",
+                     "kd_rek90_3",
+                     "kd_rek90_4")) %>%
+    left_join(rek3, by = c("kd_rek90_1",
+                           "kd_rek90_2",
+                           "kd_rek90_3")) %>%
+    left_join(rek2, by = c("kd_rek90_1",
+                           "kd_rek90_2")) %>%
+    left_join(rek1, by = c("kd_rek90_1"))
+  
+  rek <- rek %>%
+    select(
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      nm_rek90_1,
+      nm_rek90_2,
+      nm_rek90_3,
+      nm_rek90_4,
+      nm_rek90_5,
+      nm_rek90_6,
+      saldonorm
+    ) %>%
+    collect()
+  
+  xrek <- intersect(colnames(jrn_nrc_i), colnames(rek))
+  
+  unit <- tbl(kon, "ref_unit") %>% collect()
+  xunit <- intersect(colnames(jrn_nrc_i), colnames(unit))
+  
+  jurnal <- tbl(kon, "ref_jurnal") %>% collect()
+  
+  jurnal_transaksi <-
+    jrn_nrc_i %>%
+    left_join(unit, xunit) %>%
+    left_join(jurnal, "kd_jurnal") %>%
+    left_join(rek, xrek) %>%
+    left_join(
+      rek,
+      by = c(
+        "kd_lwn_1" = "kd_rek90_1",
+        "kd_lwn_2" = "kd_rek90_2",
+        "kd_lwn_3" = "kd_rek90_3",
+        "kd_lwn_4" = "kd_rek90_4",
+        "kd_lwn_5" = "kd_rek90_5",
+        "kd_lwn_6" = "kd_rek90_6"
+      )
+    ) %>%
+    select(
+      tahun,
+      kd_unit90,
+      nm_unit,
+      no_bukti,
+      tgl_bukti,
+      no_bku,
+      keterangan,
+      nm_jurnal,
+      kd_rek90_1,
+      kd_rek90_2,
+      kd_rek90_3,
+      kd_rek90_4,
+      kd_rek90_5,
+      kd_rek90_6,
+      nm_rek90_1 = nm_rek90_1.x,
+      nm_rek90_2 = nm_rek90_2.x,
+      nm_rek90_3 = nm_rek90_3.x,
+      nm_rek90_4 = nm_rek90_4.x,
+      nm_rek90_5 = nm_rek90_5.x,
+      nm_rek90_6 = nm_rek90_6.x,
+      normal.x = saldonorm.x,
+      debet,
+      kredit,
+      kd_lwn_1,
+      kd_lwn_2,
+      kd_lwn_3,
+      kd_lwn_4,
+      kd_lwn_5,
+      kd_lwn_6,
+      nm_lwn_1 = nm_rek90_1.y,
+      nm_lwn_2 = nm_rek90_2.y,
+      nm_lwn_3 = nm_rek90_3.y,
+      nm_lwn_4 = nm_rek90_4.y,
+      nm_lwn_5 = nm_rek90_5.y,
+      nm_lwn_6 = nm_rek90_6.y,
+      normal.y = saldonorm.y
+    )
+  
+  return(jurnal_transaksi)
+}
+
+
+# SIMPAN DATA
+simpan_data_simda <- function(kon) {
+  pemda <- tbl(kon, "ta_pemda") %>%
+    arrange(-tahun) %>%
+    head(1) %>%
+    collect()
+  
+  ta <- pemda %>%
+    select(tahun) %>%
+    pull()
+  
+  entitas <- pemda %>%
+    select(nm_pemda) %>%
+    pull() %>%
+    word(start = 2, end = -1) %>%
+    str_to_lower()
+  
+  tempat_simpan <-
+    entitas %>%
+    str_replace_all(" ", "_")
+  
+  fs::dir_create(tempat_simpan)
+  
+  tarik_saldo_nrc_aset(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/nrc_aset.csv"), append = FALSE)
+  
+  tarik_saldo_nrc_ekuitas(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/nrc_ekuitas.csv"), append = FALSE)
+  
+  tarik_saldo_nrc_kewajiban(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/nrc_kewajiban.csv"), append = FALSE)
+  
+  tarik_saldo_lra_pendapatan(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/lra_pendapatan.csv"), append = FALSE)
+  
+  tarik_saldo_lra_belanja(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/lra_belanja.csv"), append = FALSE)
+  
+  tarik_saldo_lra_terima_biaya(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/lra_biaya_terima.csv"), append = FALSE)
+  
+  tarik_saldo_lra_keluar_biaya(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/lra_biaya_keluar.csv"), append = FALSE)
+  
+  tarik_saldo_lra_silpa(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/lra_silpa.csv"), append = FALSE)
+  
+  tarik_saldo_lo_pendapatan(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/lo_pendapatan.csv"), append = FALSE)
+  
+  tarik_saldo_lo_beban(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/lo_beban.csv"), append = FALSE)
+  
+  tarik_saldo_lo_surplus(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/lo_surplus.csv"), append = FALSE)
+  
+  tarik_saldo_lo_defisit(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/lo_defisit.csv"), append = FALSE)
+  
+  tarik_jurnal(kon) %>% 
+    mutate(entitas = entitas) %>% 
+    write_csv(., glue("{tempat_simpan}/jurnal.csv"), append = FALSE)
+  
+  tarik_sp2d_spm(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/sp2d.csv"), append = FALSE)
+  
+  tarik_sts(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/sts.csv"), append = FALSE)
+  
+  bayar_kontrak(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/kontrak_bayar.csv"), append = FALSE)
+  
+  daftar_kontrak(kon) %>%
+    mutate(entitas = entitas) %>%
+    write_csv(., glue("{tempat_simpan}/kontrak_daftar.csv"), append = FALSE)
+  
+  return(glue("semua {entitas} sudah disimpan"))
+  
+}
+
+
