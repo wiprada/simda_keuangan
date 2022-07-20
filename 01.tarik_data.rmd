@@ -6,6 +6,7 @@ library(glue)
 source("ambil_data.r")
 ```
 
+
 ```{r}
 
 nama_server <- "ND-JD8NNF2\\SQLEXPRESS"
@@ -22,7 +23,12 @@ db <- c(
 )
 ```
 
+
+
 ```{r}
+
+setwd("hasilnya/")
+
 for(val in db) {
     kon <-
         DBI::dbConnect(
