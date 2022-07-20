@@ -1,0 +1,150 @@
+---
+title: "Tarik Data Simda"
+author: "Awalokana"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(DBI)
+library(DT)
+```
+
+```{r}
+kon <- DBI::dbConnect(
+    odbc::odbc(),
+    Driver = "SQL Server Native Client 11.0",
+    Server = "hqdukriksql02.bpk.go.id",
+    Database = "simda_keu_2021_kab_bangli_bali_audited_new",
+    uid = "SimdaAudited",
+    pwd = "S1md42022!!"
+)
+```
+
+
+```{r}
+df1 <- tbl(kon, "ta_jurnalsemuaak")
+df2 <- tbl(kon, "ta_jurnalsemuaak_rinc")
+xdf <- intersect(colnames(df1), colnames(df2))
+df_jurnal <- left_join(df1, df2, xdf)
+```
+
+```{r}
+# menambahkan referensi akun rek90
+  rek1 <- tbl(kon, "ref_rek90_1")
+  rek2 <- tbl(kon, "ref_rek90_2")
+  rek3 <- tbl(kon, "ref_rek90_3")
+  rek4 <- tbl(kon, "ref_rek90_4")
+  rek5 <- tbl(kon, "ref_rek90_5")
+  rek6 <- tbl(kon, "ref_rek90_6")
+
+  rek <- rek6 %>%
+    left_join(rek5, by = c(
+      "kd_rek90_1",
+      "kd_rek90_2",
+      "kd_rek90_3",
+      "kd_rek90_4",
+      "kd_rek90_5"
+    )) %>%
+    left_join(rek4, by = c(
+      "kd_rek90_1",
+      "kd_rek90_2",
+      "kd_rek90_3",
+      "kd_rek90_4"
+    )) %>%
+    left_join(rek3, by = c(
+      "kd_rek90_1",
+      "kd_rek90_2",
+      "kd_rek90_3"
+    )) %>%
+    left_join(rek2, by = c(
+      "kd_rek90_1",
+      "kd_rek90_2"
+    )) %>%
+    left_join(rek1, by = c("kd_rek90_1"))
+
+  rek <- rek %>%
+    select(
+      kd_rek90_1, kd_rek90_2, kd_rek90_3,
+      kd_rek90_4, kd_rek90_5, kd_rek90_6,
+      nm_rek90_1, nm_rek90_2, nm_rek90_3,
+      nm_rek90_4, nm_rek90_5, nm_rek90_6,
+      saldonorm
+    )
+  
+xrek <- intersect(colnames(df_jurnal), colnames(rek))
+```
+
+```{r}
+jrn_a <- 
+    df_jurnal %>% 
+    left_join(rek, xrek) %>% 
+    collect()
+```
+
+```{r}
+jrn_b <-  
+    jrn_a %>% 
+    filter(posting == TRUE | posting_skpkd == TRUE) %>% 
+    filter(kd_jurnal != 8)
+```
+
+```{r}
+jrn_b %>% 
+    group_by(
+        kd_rek90_1, 
+        kd_rek90_2, 
+        kd_rek90_3,
+        nm_rek90_3, 
+        saldonorm
+        ) %>% 
+    summarise(debet = sum(debet, na.rm = T),
+              kredit = sum(kredit, na.rm = T),
+              .groups = "drop") %>% 
+    mutate(saldo = if_else(saldonorm == "D", debet - kredit, kredit - debet)) %>% 
+    filter(kd_rek90_1 > 3 & kd_rek90_1 < 7) %>% 
+    datatable() %>% 
+    DT::formatCurrency(
+        columns = c("debet", "kredit", "saldo"), currency = "Rp"
+    )
+```
+
+```{r}
+jrn_b %>% 
+    group_by(
+        kd_rek90_1,
+        kd_rek90_2,
+        kd_rek90_3,
+        nm_rek90_3,
+        saldonorm
+    ) %>% 
+    summarise(
+        debet = sum(debet, na.rm = TRUE),
+        kredit = sum(kredit, na.rm = TRUE),
+        .groups = "drop"
+    ) %>% 
+    mutate(
+        saldo = if_else(saldonorm == "D", debet - kredit, kredit - debet)
+    ) %>% 
+    filter(kd_rek90_1 > 6) %>% 
+    datatable() %>% 
+    DT::formatCurrency(
+        columns = c("debet", "kredit", "saldo"), currency = "Rp"
+    )
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
